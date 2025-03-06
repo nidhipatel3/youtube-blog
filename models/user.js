@@ -1,5 +1,6 @@
 const { Schema, model } = require('mongoose');
 const { createHmac, randomBytes } = require('node:crypto');
+const { createTokenForUser } = require('../services/authentication');
 
 const userSchema = new Schema(
     {
@@ -33,11 +34,10 @@ const userSchema = new Schema(
     { timestamp: true }
 );
 
-//using pre middleware of mangoose
 userSchema.pre('save', function () {
     const user = this;
     if (!user.isModified("password")) return;
-    const salt = randomBytes(16).toString(); //random string
+    const salt = randomBytes(16).toString();
     const hashedPassword = createHmac('sha256', salt)
         .update(user.password)
         .digest("hex");
@@ -46,8 +46,7 @@ userSchema.pre('save', function () {
 
 })
 
-//making function
-userSchema.static('matchPassword', async function (email, password) {
+userSchema.static('matchPasswordAndGenerateToken', async function (email, password) {
     const user = await this.findOne({ email });
     if (!user) throw new Error('User not found !');
 
@@ -62,7 +61,8 @@ userSchema.static('matchPassword', async function (email, password) {
     if (hashedPassword !== userProvideHash) {
         throw new Error("Incorrect Password!");
     }
-    return user;
+    const token = createTokenForUser(user);
+    return token;
 
 })
 
